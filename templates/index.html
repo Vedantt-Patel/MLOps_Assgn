@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Fake News Detector</title>
+
+    <style>
+        /* General Reset */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: "Poppins", sans-serif;
+        }
+
+        body {
+            background: linear-gradient(135deg, #2b5876, #4e4376);
+            color: #fff;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+        }
+
+        .container {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+            padding: 40px;
+            width: 90%;
+            max-width: 600px;
+            text-align: center;
+        }
+
+        h1 {
+            font-size: 2rem;
+            margin-bottom: 20px;
+            font-weight: 600;
+            letter-spacing: 1px;
+        }
+
+        p {
+            font-size: 0.95rem;
+            color: #dcdcdc;
+            margin-bottom: 30px;
+        }
+
+        textarea {
+            width: 100%;
+            height: 180px;
+            border-radius: 12px;
+            padding: 15px;
+            border: none;
+            outline: none;
+            resize: none;
+            font-size: 1rem;
+            background: rgba(255, 255, 255, 0.9);
+            color: #333;
+            transition: 0.3s ease;
+        }
+
+        textarea:focus {
+            box-shadow: 0 0 10px rgba(255, 255, 255, 0.3);
+            transform: scale(1.01);
+        }
+
+        button {
+            background: linear-gradient(135deg, #ff6b6b, #f06595);
+            border: none;
+            padding: 12px 30px;
+            border-radius: 25px;
+            font-size: 1rem;
+            color: #fff;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin-top: 20px;
+        }
+
+        button:hover {
+            background: linear-gradient(135deg, #f06595, #ff6b6b);
+            transform: translateY(-3px);
+            box-shadow: 0 5px 15px rgba(255, 255, 255, 0.2);
+        }
+
+        .result {
+            margin-top: 25px;
+            padding: 15px;
+            border-radius: 10px;
+            font-size: 1.1rem;
+            font-weight: 500;
+        }
+
+        .real {
+            background: rgba(0, 255, 0, 0.1);
+            color: #00ff7f;
+        }
+
+        .fake {
+            background: rgba(255, 0, 0, 0.1);
+            color: #ff7070;
+        }
+
+        footer {
+            position: absolute;
+            bottom: 15px;
+            font-size: 0.8rem;
+            color: #cfcfcf;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>📰 Fake News Detector</h1>
+        <p>Enter any news text below to check if it’s real or fake.</p>
+
+        <textarea id="newsText" placeholder="Paste your news article text here..."></textarea>
+        <br />
+        <button id="checkBtn">Check News</button>
+
+        <div id="result" class="result" style="display:none;"></div>
+    </div>
+
+    <footer>
+        Built with ❤️ using FastAPI & ML | Mentora Labs
+    </footer>
+
+    <script>
+        document.getElementById("checkBtn").addEventListener("click", async () => {
+            const newsText = document.getElementById("newsText").value.trim();
+            const resultDiv = document.getElementById("result");
+
+            if (!newsText) {
+                resultDiv.style.display = "block";
+                resultDiv.textContent = "⚠️ Please enter some news text.";
+                resultDiv.className = "result fake";
+                return;
+            }
+
+            resultDiv.style.display = "block";
+            resultDiv.textContent = "⏳ Checking...";
+            resultDiv.className = "result";
+
+            try {
+                const response = await fetch("http://127.0.0.1:8000/predict", {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json"
+                    },
+                    body: JSON.stringify({ text: newsText })
+                });
+
+                const data = await response.json();
+
+                resultDiv.style.display = "block";
+                if (data.prediction === "real") {
+                    resultDiv.textContent = "✅ This news appears to be REAL!";
+                    resultDiv.className = "result real";
+                } else {
+                    resultDiv.textContent = "❌ This news appears to be FAKE!";
+                    resultDiv.className = "result fake";
+                }
+            } catch (err) {
+                resultDiv.style.display = "block";
+                resultDiv.textContent = "⚠️ Error connecting to server. Try again!";
+                resultDiv.className = "result fake";
+            }
+        });
+    </script>
+</body>
+</html>
