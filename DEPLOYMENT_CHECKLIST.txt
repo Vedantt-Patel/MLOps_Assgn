@@ -1,0 +1,337 @@
+╔═══════════════════════════════════════════════════════════════╗
+║        PRE-DEPLOYMENT CHECKLIST - JENKINS CI/CD              ║
+╚═══════════════════════════════════════════════════════════════╝
+
+Complete this checklist before pushing to GitHub and setting up Jenkins.
+
+───────────────────────────────────────────────────────────────
+📁 REQUIRED FILES VERIFICATION
+───────────────────────────────────────────────────────────────
+
+Core Application Files:
+  [ ] main.py                    - FastAPI application
+  [ ] database.py                - Database models
+  [ ] text_cleaner.py            - Text preprocessing
+  [ ] requirements.txt           - Python dependencies
+  [ ] models/ensemble_model.pkl  - Trained ML model
+  [ ] models/encoder.pkl         - Label encoder
+  [ ] templates/index.html       - Main UI
+  [ ] templates/dashboard.html   - Admin dashboard
+
+Docker Files:
+  [ ] docker-compose.yml         - Service orchestration
+  [ ] Dockerfile.api             - API container recipe
+  [ ] Dockerfile.mlflow          - MLflow container recipe
+  [ ] .dockerignore              - Build optimization
+
+Jenkins Files:
+  [ ] Jenkinsfile                - CI/CD pipeline definition
+
+Documentation:
+  [ ] README.md                  - Project overview
+  [ ] JENKINS_SETUP.md           - Jenkins setup guide
+  [ ] JENKINS_QUICK_REF.txt      - Quick reference
+  [ ] JENKINS_PIPELINE_FLOW.md   - Visual pipeline diagram
+  [ ] DOCKER_GUIDE.md            - Docker deployment guide
+  [ ] DOCKER_README.txt          - Docker quick help
+
+───────────────────────────────────────────────────────────────
+🔍 LOCAL TESTING (Before Push)
+───────────────────────────────────────────────────────────────
+
+Docker Build Test:
+  [ ] Run: docker-compose build
+  [ ] Verify: Both images built successfully
+  [ ] Check: No error messages in output
+
+Docker Deployment Test:
+  [ ] Run: docker-compose up -d
+  [ ] Wait: 15-20 seconds for services to start
+  [ ] Check: docker-compose ps shows both containers "Up"
+  [ ] Verify: docker ps shows "healthy" status
+
+Service Accessibility Test:
+  [ ] Open: http://localhost:8000 (should load app)
+  [ ] Open: http://localhost:8000/dashboard (should show dashboard)
+  [ ] Open: http://localhost:8000/docs (should show API docs)
+  [ ] Open: http://localhost:5000 (should show MLflow UI)
+
+API Functionality Test:
+  [ ] Test prediction on main app
+  [ ] Submit feedback (correct/incorrect + rating)
+  [ ] Check dashboard updates with new data
+  [ ] Verify stats endpoint: curl http://localhost:8000/api/stats
+
+Cleanup After Testing:
+  [ ] Run: docker-compose down
+  [ ] Verify: Containers stopped but volumes preserved
+
+───────────────────────────────────────────────────────────────
+🔧 SYSTEM PREREQUISITES
+───────────────────────────────────────────────────────────────
+
+Local Environment:
+  [ ] Docker Desktop installed and running
+  [ ] Docker version 20.10+ (check: docker --version)
+  [ ] Docker Compose version 1.29+ (check: docker-compose --version)
+  [ ] Git installed (check: git --version)
+  [ ] Ports 8000 and 5000 are free
+
+Jenkins Server:
+  [ ] Jenkins installed (version 2.x or higher)
+  [ ] Jenkins accessible (default: http://localhost:8080)
+  [ ] Docker accessible from Jenkins
+  [ ] Git plugin installed in Jenkins
+  [ ] Pipeline plugin installed in Jenkins
+  [ ] Docker Pipeline plugin installed (optional but recommended)
+
+GitHub Repository:
+  [ ] Repository created: Vedantt-Patel/MLOps_Assgn
+  [ ] Repository is public (or Jenkins has access)
+  [ ] You have push access to repository
+  [ ] Default branch is 'main' (not 'master')
+
+───────────────────────────────────────────────────────────────
+📤 PUSH TO GITHUB
+───────────────────────────────────────────────────────────────
+
+Commands to run:
+
+1. Check current status:
+   [ ] git status
+
+2. Add all files:
+   [ ] git add .
+
+3. Commit with message:
+   [ ] git commit -m "Add Jenkins CI/CD pipeline with Docker deployment"
+
+4. Push to GitHub:
+   [ ] git push origin main
+
+5. Verify on GitHub:
+   [ ] Visit: https://github.com/Vedantt-Patel/MLOps_Assgn
+   [ ] Check: All files are visible
+   [ ] Check: Jenkinsfile is in root directory
+   [ ] Check: docker-compose.yml is in root directory
+
+───────────────────────────────────────────────────────────────
+⚙️ JENKINS JOB SETUP
+───────────────────────────────────────────────────────────────
+
+Step 1: Create New Job
+  [ ] Open Jenkins dashboard
+  [ ] Click "New Item"
+  [ ] Name: "FakeNews-Detector-Pipeline"
+  [ ] Type: Pipeline
+  [ ] Click: OK
+
+Step 2: Configure Job
+  [ ] General → Check "GitHub project" (optional)
+  [ ] Project URL: https://github.com/Vedantt-Patel/MLOps_Assgn
+
+Step 3: Build Triggers
+  Choose one or more:
+  [ ] Option A: Poll SCM → H/5 * * * * (every 5 min)
+  [ ] Option B: GitHub hook trigger (if using webhooks)
+  [ ] Option C: Manual only (no trigger selected)
+
+Step 4: Pipeline Configuration
+  [ ] Definition: "Pipeline script from SCM"
+  [ ] SCM: Git
+  [ ] Repository URL: https://github.com/Vedantt-Patel/MLOps_Assgn
+  [ ] Credentials: None (for public repo)
+  [ ] Branch Specifier: */main
+  [ ] Script Path: Jenkinsfile
+
+Step 5: Save Configuration
+  [ ] Click "Save" button
+  [ ] You should see job in Jenkins dashboard
+
+───────────────────────────────────────────────────────────────
+🚀 FIRST BUILD
+───────────────────────────────────────────────────────────────
+
+Before First Build:
+  [ ] Docker Desktop is running
+  [ ] Ports 8000 and 5000 are free
+  [ ] Close any local docker-compose instances
+  [ ] Run: docker-compose down (to clean any running containers)
+
+Start Build:
+  [ ] Go to Jenkins job: "FakeNews-Detector-Pipeline"
+  [ ] Click "Build Now"
+  [ ] Watch build progress in Build History
+  [ ] Click on build number (e.g., #1)
+  [ ] Click "Console Output" to see live logs
+
+Expected Output:
+  [ ] Stage 1: Environment Check ✅
+  [ ] Stage 2: Cleanup Old Containers ✅
+  [ ] Stage 3: Build Docker Images ✅ (takes ~2-5 min)
+  [ ] Stage 4: Deploy Services ✅
+  [ ] Stage 5: Health Checks ✅
+  [ ] Stage 6: Functional Tests ✅
+  [ ] Stage 7: Service Logs ✅
+  [ ] Stage 8: Deployment Summary ✅
+
+Success Indicators:
+  [ ] Console shows: "✅ Pipeline Completed Successfully!"
+  [ ] Build status icon is blue/green
+  [ ] No red error messages in console
+  [ ] Service URLs displayed at end
+
+───────────────────────────────────────────────────────────────
+✅ POST-BUILD VERIFICATION
+───────────────────────────────────────────────────────────────
+
+Verify Deployment:
+  [ ] Open: http://localhost:8000
+      → Should show fake news detector interface
+  
+  [ ] Open: http://localhost:8000/dashboard
+      → Should show analytics dashboard
+  
+  [ ] Open: http://localhost:8000/docs
+      → Should show Swagger API documentation
+  
+  [ ] Open: http://localhost:5000
+      → Should show MLflow tracking UI
+
+Test Functionality:
+  [ ] Make a prediction on main app
+  [ ] Submit feedback (correct/incorrect)
+  [ ] Rate the prediction (1-5 stars)
+  [ ] Check dashboard shows updated stats
+  [ ] Verify prediction appears in predictions list
+
+Check Docker Containers:
+  [ ] Run: docker ps
+  [ ] Should show 2 containers: fakenews-api, fakenews-mlflow
+  [ ] Both should have "healthy" status
+  [ ] Uptime should be a few minutes
+
+Check Docker Volumes:
+  [ ] Run: docker volume ls | findstr fakenews
+  [ ] Should show 3 volumes:
+      - fakenews-mlflow-backend
+      - fakenews-mlflow-artifacts
+      - fakenews-predictions-db
+
+───────────────────────────────────────────────────────────────
+🔄 SUBSEQUENT BUILDS
+───────────────────────────────────────────────────────────────
+
+After Code Changes:
+  [ ] Make changes to code
+  [ ] git add .
+  [ ] git commit -m "Description of changes"
+  [ ] git push origin main
+
+  If Poll SCM enabled:
+    [ ] Wait ~5 minutes for Jenkins to detect changes
+    [ ] Build starts automatically
+
+  If Manual trigger:
+    [ ] Go to Jenkins job
+    [ ] Click "Build Now"
+
+  [ ] Verify build succeeds
+  [ ] Check deployed app reflects changes
+
+───────────────────────────────────────────────────────────────
+❌ TROUBLESHOOTING CHECKLIST
+───────────────────────────────────────────────────────────────
+
+If Build Fails:
+
+Check Environment:
+  [ ] Is Docker Desktop running?
+      Fix: Start Docker Desktop
+  
+  [ ] Are ports 8000/5000 free?
+      Fix: docker-compose down
+      Fix: netstat -ano | findstr :8000
+      Fix: Kill process using ports
+
+Check Docker:
+  [ ] Can Docker build images?
+      Test: docker build -t test -f Dockerfile.api .
+  
+  [ ] Is docker-compose working?
+      Test: docker-compose --version
+
+Check Jenkins:
+  [ ] Does Jenkins have Git access?
+      Fix: Check SCM configuration
+  
+  [ ] Does Jenkins have Docker access?
+      Fix: Verify Docker in PATH
+      Fix: Restart Jenkins service
+
+Check Logs:
+  [ ] View Jenkins console output for errors
+  [ ] Check: docker-compose logs
+  [ ] Check: docker ps -a (including stopped containers)
+
+Common Issues:
+  [ ] "Port already in use"
+      → Run: docker-compose down
+  
+  [ ] "Docker not found"
+      → Ensure Docker Desktop running
+      → Add Docker to system PATH
+  
+  [ ] "Health check timeout"
+      → Increase wait time in Jenkinsfile
+      → Check: docker-compose logs
+  
+  [ ] "Git repository not found"
+      → Verify GitHub URL in job config
+      → Check branch name (main vs master)
+
+───────────────────────────────────────────────────────────────
+📚 REFERENCE DOCUMENTATION
+───────────────────────────────────────────────────────────────
+
+For detailed information, refer to:
+
+  • JENKINS_SETUP.md         - Complete setup instructions
+  • JENKINS_QUICK_REF.txt    - Command reference
+  • JENKINS_PIPELINE_FLOW.md - Visual pipeline diagram
+  • DOCKER_GUIDE.md          - Docker deployment guide
+  • DOCKER_README.txt        - Docker quick help
+
+───────────────────────────────────────────────────────────────
+✅ COMPLETION CHECKLIST
+───────────────────────────────────────────────────────────────
+
+  [ ] All required files present
+  [ ] Local Docker testing passed
+  [ ] Files pushed to GitHub
+  [ ] Jenkins job created and configured
+  [ ] First build completed successfully
+  [ ] Application accessible at localhost:8000
+  [ ] All services healthy
+  [ ] Functional tests passed
+  [ ] Documentation reviewed
+
+═══════════════════════════════════════════════════════════════
+
+🎉 READY FOR PRODUCTION!
+
+Your Fake News Detector is now deployed with:
+  ✓ Docker containerization
+  ✓ MLflow experiment tracking
+  ✓ Automated CI/CD with Jenkins
+  ✓ Health monitoring
+  ✓ Database persistence
+
+Next steps:
+  1. Monitor builds in Jenkins
+  2. Make code improvements
+  3. Push changes and watch auto-deployment
+  4. Consider adding unit tests (pytest)
+  5. Set up webhooks for instant builds
+
+═══════════════════════════════════════════════════════════════

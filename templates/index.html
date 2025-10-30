@@ -1,175 +1,502 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
+  <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Fake News Detector</title>
 
     <style>
-        /* General Reset */
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-            font-family: "Poppins", sans-serif;
-        }
+      /* General Reset */
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+        font-family: "Poppins", sans-serif;
+      }
 
-        body {
-            background: linear-gradient(135deg, #2b5876, #4e4376);
-            color: #fff;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            height: 100vh;
-        }
+      body {
+        background: linear-gradient(135deg, #2b5876, #4e4376);
+        color: #fff;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        height: 100vh;
+      }
 
-        .container {
-            background: rgba(255, 255, 255, 0.1);
-            backdrop-filter: blur(10px);
-            border-radius: 20px;
-            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
-            padding: 40px;
-            width: 90%;
-            max-width: 600px;
-            text-align: center;
-        }
+      .container {
+        background: rgba(255, 255, 255, 0.1);
+        backdrop-filter: blur(10px);
+        border-radius: 20px;
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+        padding: 40px;
+        width: 90%;
+        max-width: 600px;
+        text-align: center;
+      }
 
-        h1 {
-            font-size: 2rem;
-            margin-bottom: 20px;
-            font-weight: 600;
-            letter-spacing: 1px;
-        }
+      h1 {
+        font-size: 2rem;
+        margin-bottom: 20px;
+        font-weight: 600;
+        letter-spacing: 1px;
+      }
 
-        p {
-            font-size: 0.95rem;
-            color: #dcdcdc;
-            margin-bottom: 30px;
-        }
+      p {
+        font-size: 0.95rem;
+        color: #dcdcdc;
+        margin-bottom: 30px;
+      }
 
-        textarea {
-            width: 100%;
-            height: 180px;
-            border-radius: 12px;
-            padding: 15px;
-            border: none;
-            outline: none;
-            resize: none;
-            font-size: 1rem;
-            background: rgba(255, 255, 255, 0.9);
-            color: #333;
-            transition: 0.3s ease;
-        }
+      .input-field {
+        width: 100%;
+        border-radius: 12px;
+        padding: 15px;
+        border: none;
+        outline: none;
+        font-size: 1rem;
+        background: rgba(255, 255, 255, 0.9);
+        color: #333;
+        transition: 0.3s ease;
+        margin-bottom: 15px;
+      }
 
-        textarea:focus {
-            box-shadow: 0 0 10px rgba(255, 255, 255, 0.3);
-            transform: scale(1.01);
-        }
+      .input-field:focus {
+        box-shadow: 0 0 10px rgba(255, 255, 255, 0.3);
+        transform: scale(1.01);
+      }
 
-        button {
-            background: linear-gradient(135deg, #ff6b6b, #f06595);
-            border: none;
-            padding: 12px 30px;
-            border-radius: 25px;
-            font-size: 1rem;
-            color: #fff;
-            font-weight: 600;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            margin-top: 20px;
-        }
+      textarea {
+        width: 100%;
+        height: 180px;
+        border-radius: 12px;
+        padding: 15px;
+        border: none;
+        outline: none;
+        resize: none;
+        font-size: 1rem;
+        background: rgba(255, 255, 255, 0.9);
+        color: #333;
+        transition: 0.3s ease;
+      }
 
-        button:hover {
-            background: linear-gradient(135deg, #f06595, #ff6b6b);
-            transform: translateY(-3px);
-            box-shadow: 0 5px 15px rgba(255, 255, 255, 0.2);
-        }
+      textarea:focus {
+        box-shadow: 0 0 10px rgba(255, 255, 255, 0.3);
+        transform: scale(1.01);
+      }
 
-        .result {
-            margin-top: 25px;
-            padding: 15px;
-            border-radius: 10px;
-            font-size: 1.1rem;
-            font-weight: 500;
-        }
+      form {
+        width: 100%;
+      }
 
-        .real {
-            background: rgba(0, 255, 0, 0.1);
-            color: #00ff7f;
-        }
+      button {
+        background: linear-gradient(135deg, #ff6b6b, #f06595);
+        border: none;
+        padding: 12px 30px;
+        border-radius: 25px;
+        font-size: 1rem;
+        color: #fff;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        margin-top: 20px;
+      }
 
-        .fake {
-            background: rgba(255, 0, 0, 0.1);
-            color: #ff7070;
-        }
+      button:hover {
+        background: linear-gradient(135deg, #f06595, #ff6b6b);
+        transform: translateY(-3px);
+        box-shadow: 0 5px 15px rgba(255, 255, 255, 0.2);
+      }
 
-        footer {
-            position: absolute;
-            bottom: 15px;
-            font-size: 0.8rem;
-            color: #cfcfcf;
-            text-align: center;
+      .result {
+        margin-top: 25px;
+        padding: 15px;
+        border-radius: 10px;
+        font-size: 1.1rem;
+        font-weight: 500;
+      }
+
+      .real {
+        background: rgba(0, 255, 0, 0.1);
+        color: #00ff7f;
+      }
+
+      .fake {
+        background: rgba(255, 0, 0, 0.1);
+        color: #ff7070;
+      }
+
+      footer {
+        position: absolute;
+        bottom: 15px;
+        font-size: 0.8rem;
+        color: #cfcfcf;
+        text-align: center;
+      }
+
+      .feedback-section {
+        margin-top: 30px;
+        padding: 25px;
+        background: rgba(255, 255, 255, 0.08);
+        border-radius: 15px;
+        display: none;
+        animation: slideIn 0.5s ease;
+      }
+
+      @keyframes slideIn {
+        from {
+          opacity: 0;
+          transform: translateY(-20px);
         }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+
+      .feedback-section h3 {
+        font-size: 1.2rem;
+        margin-bottom: 20px;
+        color: #fff;
+      }
+
+      .feedback-buttons {
+        display: flex;
+        gap: 15px;
+        justify-content: center;
+        margin-bottom: 20px;
+      }
+
+      .feedback-btn {
+        padding: 10px 25px;
+        border-radius: 20px;
+        border: 2px solid rgba(255, 255, 255, 0.3);
+        background: rgba(255, 255, 255, 0.1);
+        color: #fff;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        font-size: 0.95rem;
+      }
+
+      .feedback-btn:hover {
+        background: rgba(255, 255, 255, 0.2);
+        transform: scale(1.05);
+      }
+
+      .feedback-btn.selected {
+        background: linear-gradient(135deg, #667eea, #764ba2);
+        border-color: #667eea;
+      }
+
+      .star-rating {
+        display: flex;
+        justify-content: center;
+        gap: 10px;
+        margin-bottom: 20px;
+      }
+
+      .star {
+        font-size: 2rem;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        color: rgba(255, 255, 255, 0.3);
+      }
+
+      .star:hover,
+      .star.active {
+        color: #ffd700;
+        transform: scale(1.2);
+      }
+
+      .submit-feedback-btn {
+        background: linear-gradient(135deg, #667eea, #764ba2);
+        border: none;
+        padding: 12px 30px;
+        border-radius: 25px;
+        font-size: 1rem;
+        color: #fff;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.3s ease;
+      }
+
+      .submit-feedback-btn:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+      }
+
+      .submit-feedback-btn:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+      }
+
+      .dashboard-link {
+        margin-top: 20px;
+        text-align: center;
+      }
+
+      .dashboard-link a {
+        color: #fff;
+        text-decoration: none;
+        font-size: 0.9rem;
+        padding: 8px 20px;
+        border: 1px solid rgba(255, 255, 255, 0.3);
+        border-radius: 20px;
+        transition: all 0.3s ease;
+        display: inline-block;
+      }
+
+      .dashboard-link a:hover {
+        background: rgba(255, 255, 255, 0.1);
+        border-color: #fff;
+      }
     </style>
-</head>
-<body>
+  </head>
+  <body>
     <div class="container">
-        <h1>📰 Fake News Detector</h1>
-        <p>Enter any news text below to check if it’s real or fake.</p>
+      <h1>📰 Fake News Detector</h1>
+      <p>Enter the news title and text below to check if it's real or fake.</p>
 
-        <textarea id="newsText" placeholder="Paste your news article text here..."></textarea>
-        <br />
-        <button id="checkBtn">Check News</button>
+      <form id="newsForm">
+        <input
+          type="text"
+          id="newsTitle"
+          placeholder="Enter news title (optional)..."
+          class="input-field"
+        />
 
-        <div id="result" class="result" style="display:none;"></div>
+        <textarea
+          id="newsText"
+          placeholder="Paste your news article text here..."
+          required
+        ></textarea>
+
+        <button type="submit" id="checkBtn">Check News</button>
+      </form>
+
+      <div id="result" class="result" style="display: none"></div>
+
+      <!-- Feedback Section -->
+      <div id="feedbackSection" class="feedback-section">
+        <h3>📊 Help us improve!</h3>
+
+        <p style="margin-bottom: 15px; font-size: 0.95rem">
+          Was this prediction correct?
+        </p>
+        <div class="feedback-buttons">
+          <button type="button" class="feedback-btn" data-feedback="correct">
+            ✓ Yes, Correct
+          </button>
+          <button type="button" class="feedback-btn" data-feedback="incorrect">
+            ✗ No, Incorrect
+          </button>
+        </div>
+
+        <p style="margin-bottom: 15px; font-size: 0.95rem">
+          Rate your experience:
+        </p>
+        <div class="star-rating">
+          <span class="star" data-rating="1">★</span>
+          <span class="star" data-rating="2">★</span>
+          <span class="star" data-rating="3">★</span>
+          <span class="star" data-rating="4">★</span>
+          <span class="star" data-rating="5">★</span>
+        </div>
+
+        <button
+          type="button"
+          class="submit-feedback-btn"
+          id="submitFeedbackBtn"
+          disabled
+        >
+          Submit Feedback
+        </button>
+      </div>
+
+      <div class="dashboard-link">
+        <a href="/dashboard" target="_blank">📊 View Dashboard</a>
+      </div>
     </div>
 
-    <footer>
-        Built with ❤️ using FastAPI & ML | Mentora Labs
-    </footer>
-
     <script>
-        document.getElementById("checkBtn").addEventListener("click", async () => {
-            const newsText = document.getElementById("newsText").value.trim();
-            const resultDiv = document.getElementById("result");
+      let currentPredictionId = null;
+      let selectedFeedback = null;
+      let selectedRating = null;
 
-            if (!newsText) {
-                resultDiv.style.display = "block";
-                resultDiv.textContent = "⚠️ Please enter some news text.";
-                resultDiv.className = "result fake";
-                return;
+      // Form submission for prediction
+      document
+        .getElementById("newsForm")
+        .addEventListener("submit", async (e) => {
+          e.preventDefault();
+
+          const newsTitle = document.getElementById("newsTitle").value.trim();
+          const newsText = document.getElementById("newsText").value.trim();
+          const resultDiv = document.getElementById("result");
+          const feedbackSection = document.getElementById("feedbackSection");
+
+          // Hide feedback section and reset
+          feedbackSection.style.display = "none";
+          resetFeedback();
+
+          if (!newsText) {
+            resultDiv.style.display = "block";
+            resultDiv.textContent = "⚠️ Please enter some news text.";
+            resultDiv.className = "result fake";
+            return;
+          }
+
+          resultDiv.style.display = "block";
+          resultDiv.textContent = "⏳ Analyzing...";
+          resultDiv.className = "result";
+
+          try {
+            const response = await fetch("http://127.0.0.1:8000/predict", {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify({
+                title: newsTitle,
+                text: newsText,
+              }),
+            });
+
+            if (!response.ok) {
+              throw new Error(`HTTP error! status: ${response.status}`);
             }
+
+            const data = await response.json();
+            currentPredictionId = data.prediction_id;
 
             resultDiv.style.display = "block";
-            resultDiv.textContent = "⏳ Checking...";
-            resultDiv.className = "result";
-
-            try {
-                const response = await fetch("http://127.0.0.1:8000/predict", {
-                    method: "POST",
-                    headers: {
-                        "Content-Type": "application/json"
-                    },
-                    body: JSON.stringify({ text: newsText })
-                });
-
-                const data = await response.json();
-
-                resultDiv.style.display = "block";
-                if (data.prediction === "real") {
-                    resultDiv.textContent = "✅ This news appears to be REAL!";
-                    resultDiv.className = "result real";
-                } else {
-                    resultDiv.textContent = "❌ This news appears to be FAKE!";
-                    resultDiv.className = "result fake";
-                }
-            } catch (err) {
-                resultDiv.style.display = "block";
-                resultDiv.textContent = "⚠️ Error connecting to server. Try again!";
-                resultDiv.className = "result fake";
+            if (data.prediction === "REAL") {
+              resultDiv.textContent = `✅ This news appears to be REAL! (Confidence: ${(
+                data.confidence * 100
+              ).toFixed(1)}%)`;
+              resultDiv.className = "result real";
+            } else {
+              resultDiv.textContent = `❌ This news appears to be FAKE! (Confidence: ${(
+                data.confidence * 100
+              ).toFixed(1)}%)`;
+              resultDiv.className = "result fake";
             }
+
+            // Show feedback section if we have a prediction ID
+            if (currentPredictionId) {
+              feedbackSection.style.display = "block";
+            }
+          } catch (err) {
+            resultDiv.style.display = "block";
+            resultDiv.textContent =
+              "⚠️ Error connecting to server. Make sure the API is running!";
+            resultDiv.className = "result fake";
+            console.error("Error:", err);
+          }
         });
+
+      // Feedback button selection
+      document.querySelectorAll(".feedback-btn").forEach((btn) => {
+        btn.addEventListener("click", function () {
+          document
+            .querySelectorAll(".feedback-btn")
+            .forEach((b) => b.classList.remove("selected"));
+          this.classList.add("selected");
+          selectedFeedback = this.getAttribute("data-feedback");
+          updateSubmitButton();
+        });
+      });
+
+      // Star rating selection
+      document.querySelectorAll(".star").forEach((star) => {
+        star.addEventListener("click", function () {
+          const rating = parseInt(this.getAttribute("data-rating"));
+          selectedRating = rating;
+
+          document.querySelectorAll(".star").forEach((s, index) => {
+            if (index < rating) {
+              s.classList.add("active");
+            } else {
+              s.classList.remove("active");
+            }
+          });
+
+          updateSubmitButton();
+        });
+      });
+
+      // Submit feedback
+      document
+        .getElementById("submitFeedbackBtn")
+        .addEventListener("click", async () => {
+          if (!currentPredictionId || !selectedFeedback || !selectedRating) {
+            return;
+          }
+
+          const submitBtn = document.getElementById("submitFeedbackBtn");
+          submitBtn.disabled = true;
+          submitBtn.textContent = "Submitting...";
+
+          try {
+            const response = await fetch("http://127.0.0.1:8000/feedback", {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify({
+                prediction_id: currentPredictionId,
+                user_feedback: selectedFeedback,
+                user_rating: selectedRating,
+              }),
+            });
+
+            if (!response.ok) {
+              throw new Error(`HTTP error! status: ${response.status}`);
+            }
+
+            const data = await response.json();
+
+            submitBtn.textContent = "✓ Thank you!";
+            submitBtn.style.background =
+              "linear-gradient(135deg, #00b09b, #96c93d)";
+
+            setTimeout(() => {
+              document.getElementById("feedbackSection").style.display = "none";
+              resetFeedback();
+            }, 2000);
+          } catch (err) {
+            submitBtn.textContent = "Failed - Try Again";
+            submitBtn.disabled = false;
+            console.error("Error:", err);
+          }
+        });
+
+      function updateSubmitButton() {
+        const submitBtn = document.getElementById("submitFeedbackBtn");
+        if (selectedFeedback && selectedRating) {
+          submitBtn.disabled = false;
+        } else {
+          submitBtn.disabled = true;
+        }
+      }
+
+      function resetFeedback() {
+        selectedFeedback = null;
+        selectedRating = null;
+        currentPredictionId = null;
+
+        document
+          .querySelectorAll(".feedback-btn")
+          .forEach((b) => b.classList.remove("selected"));
+        document
+          .querySelectorAll(".star")
+          .forEach((s) => s.classList.remove("active"));
+
+        const submitBtn = document.getElementById("submitFeedbackBtn");
+        submitBtn.disabled = true;
+        submitBtn.textContent = "Submit Feedback";
+        submitBtn.style.background =
+          "linear-gradient(135deg, #667eea, #764ba2)";
+      }
     </script>
-</body>
+  </body>
 </html>

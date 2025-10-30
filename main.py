@@ -1,19 +1,37 @@
-from fastapi import FastAPI
-from fastapi import FastAPI, Request
-from fastapi.responses import HTMLResponse
+from fastapi import FastAPI, Request, Depends, HTTPException
+from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel
+from sqlalchemy.orm import Session
 from text_cleaner import TextCleaner
 import pickle
+import joblib
 import mlflow
 import time
 import os
 import numpy as np
+import pandas as pd
+import sys
+from datetime import datetime
+from typing import Optional
+
+# Import database
+from database import get_db, Prediction, init_db
+
+# Import all model classes needed for unpickling
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.linear_model import LogisticRegression
+from sklearn.ensemble import RandomForestClassifier, VotingClassifier
+from sklearn.pipeline import Pipeline
+from xgboost import XGBClassifier
+
+# Ensure TextCleaner is available in the correct module namespace for unpickling
+sys.modules['__main__'].TextCleaner = TextCleaner
 
 MODEL_PATH = "models/ensemble_model.pkl"
-ENCODER_PATH = "models/label_encoder.pkl"
-VECTORIZER_PATH = "models/vectorizer.pkl"
-MLFLOW_TRACKING_URI = "http://localhost:5000"
+ENCODER_PATH = "models/encoder.pkl"
+# Support Docker environment variable for MLflow
+MLFLOW_TRACKING_URI = os.getenv("MLFLOW_TRACKING_URI", "http://localhost:5000")
 MLFLOW_EXPERIMENT_NAME = "instance_experiment"
 
 app = FastAPI(
@@ -29,45 +47,75 @@ print("🔄 Loading model and encoder...")
 with open('models/ensemble_model.pkl', 'rb') as f:
     model = pickle.load(f)
 
-with open('models/label_encoder.pkl', 'rb') as f:
+with open('models/encoder.pkl', 'rb') as f:
     encoder = pickle.load(f)
 
-with open('models/vectorizer.pkl', 'rb') as f:
-    vectorizer = pickle.load(f)
+print("✅ Model Pipeline and Encoder loaded successfully!")
+print(f"📋 Pipeline steps: {[step[0] for step in model.steps]}")
 
-print("✅ Model, Encoder, and Vectorizer loaded successfully!")
-
-mlflow.set_tracking_uri(MLFLOW_TRACKING_URI)
+experiment_id = None
 try:
-    experiment_id = mlflow.create_experiment(MLFLOW_EXPERIMENT_NAME)
-except mlflow.exceptions.RestException:
-    experiment = mlflow.get_experiment_by_name(MLFLOW_EXPERIMENT_NAME)
-    experiment_id = experiment.experiment_id
+    import socket
+    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    sock.settimeout(1)
+    result = sock.connect_ex(('localhost', 5000))
+    sock.close()
+    
+    if result == 0:
+        mlflow.set_tracking_uri(MLFLOW_TRACKING_URI)
+        try:
+            experiment_id = mlflow.create_experiment(MLFLOW_EXPERIMENT_NAME)
+            print(f"✅ MLflow tracking initialized at {MLFLOW_TRACKING_URI}")
+        except mlflow.exceptions.RestException:
+            experiment = mlflow.get_experiment_by_name(MLFLOW_EXPERIMENT_NAME)
+            experiment_id = experiment.experiment_id
+            print(f"✅ MLflow experiment '{MLFLOW_EXPERIMENT_NAME}' found")
+    else:
+        print(f"⚠️ MLflow server not running on {MLFLOW_TRACKING_URI}")
+        print("⚠️ Continuing without MLflow tracking...")
+except Exception as e:
+    print(f"⚠️ MLflow initialization failed: {e}")
+    print("⚠️ Continuing without MLflow tracking...")
+
+# Initialize database
+init_db()
 
 
 class NewsItem(BaseModel):
-    title: str
+    title: str = "" 
     text: str
+
+
+class FeedbackItem(BaseModel):
+    prediction_id: int
+    user_feedback: str  # 'correct' or 'incorrect'
+    user_rating: int  # 1-5
+
 
 @app.get("/", response_class=HTMLResponse)
 def serve_index(request: Request):
     return templates.TemplateResponse("index.html", {"request": request})
 
 
+@app.get("/dashboard", response_class=HTMLResponse)
+def serve_dashboard(request: Request):
+    return templates.TemplateResponse("dashboard.html", {"request": request})
+
+
 @app.post("/predict")
-def predict(news: NewsItem):
+def predict(news: NewsItem, db: Session = Depends(get_db)):
     """
     Endpoint for predicting if a news article is REAL or FAKE.
     """
     start_time = time.time()
 
+    # Combine title and text (both fields now handled)
     full_text = news.title + " " + news.text
 
-    if vectorizer:
-        X_input = vectorizer.transform([full_text])
-    else:
-        X_input = [full_text] 
-
+    # Use the PIPELINE directly - it includes TextCleaner, TfidfVectorizer, and Ensemble
+    # The pipeline expects a pandas Series or list
+    X_input = pd.Series([full_text])
+    
     prediction = model.predict(X_input)[0]
     proba = None
     if hasattr(model, "predict_proba"):
@@ -80,16 +128,149 @@ def predict(news: NewsItem):
 
     latency = round(time.time() - start_time, 3)
 
-    with mlflow.start_run(experiment_id=experiment_id, run_name="inference_instance"):
-        mlflow.log_param("title_length", len(news.title))
-        mlflow.log_param("text_length", len(news.text))
-        mlflow.log_metric("latency_sec", latency)
-        if proba is not None:
-            mlflow.log_metric("confidence", float(proba))
-        mlflow.log_param("model_version", "v1_ensemble")
+    # Log to MLflow only if available
+    if experiment_id is not None:
+        try:
+            with mlflow.start_run(experiment_id=experiment_id, run_name="inference_instance"):
+                mlflow.log_param("title_length", len(news.title))
+                mlflow.log_param("text_length", len(news.text))
+                mlflow.log_metric("latency_sec", latency)
+                if proba is not None:
+                    mlflow.log_metric("confidence", float(proba))
+                mlflow.log_param("model_version", "v1_ensemble")
+        except Exception as e:
+            print(f"⚠️ MLflow logging failed: {e}")
+
+    # Save prediction to database
+    try:
+        db_prediction = Prediction(
+            title=news.title,
+            text=news.text,
+            prediction=decoded_label,
+            confidence=float(proba) if proba else 0.0,
+            latency_seconds=latency,
+            timestamp=datetime.utcnow()
+        )
+        db.add(db_prediction)
+        db.commit()
+        db.refresh(db_prediction)
+        prediction_id = db_prediction.id
+        print(f"✅ Prediction saved to database with ID: {prediction_id}")
+    except Exception as e:
+        print(f"⚠️ Database save failed: {e}")
+        db.rollback()
+        prediction_id = None
 
     return {
+        "prediction_id": prediction_id,
         "prediction": decoded_label,
         "confidence": round(float(proba), 3) if proba else None,
         "latency_seconds": latency
     }
+
+
+@app.post("/feedback")
+def submit_feedback(feedback: FeedbackItem, db: Session = Depends(get_db)):
+    """
+    Endpoint for submitting user feedback on a prediction.
+    """
+    try:
+        # Find the prediction by ID
+        prediction = db.query(Prediction).filter(Prediction.id == feedback.prediction_id).first()
+        
+        if not prediction:
+            raise HTTPException(status_code=404, detail="Prediction not found")
+        
+        # Validate feedback
+        if feedback.user_feedback not in ["correct", "incorrect"]:
+            raise HTTPException(status_code=400, detail="Feedback must be 'correct' or 'incorrect'")
+        
+        if feedback.user_rating < 1 or feedback.user_rating > 5:
+            raise HTTPException(status_code=400, detail="Rating must be between 1 and 5")
+        
+        # Update the prediction with feedback
+        prediction.user_feedback = feedback.user_feedback
+        prediction.user_rating = feedback.user_rating
+        
+        db.commit()
+        
+        print(f"✅ Feedback saved for prediction ID: {feedback.prediction_id}")
+        
+        return {
+            "status": "success",
+            "message": "Thank you for your feedback!",
+            "prediction_id": feedback.prediction_id
+        }
+    
+    except HTTPException:
+        raise
+    except Exception as e:
+        db.rollback()
+        print(f"⚠️ Feedback submission failed: {e}")
+        raise HTTPException(status_code=500, detail="Failed to save feedback")
+
+
+@app.get("/api/stats")
+def get_statistics(db: Session = Depends(get_db)):
+    """
+    Get statistics for the dashboard.
+    """
+    try:
+        # Total predictions
+        total_predictions = db.query(Prediction).count()
+        
+        # Predictions with feedback
+        predictions_with_feedback = db.query(Prediction).filter(
+            Prediction.user_feedback.isnot(None)
+        ).all()
+        
+        # Calculate accuracy (correct predictions / total with feedback)
+        correct_predictions = len([p for p in predictions_with_feedback if p.user_feedback == "correct"])
+        accuracy = (correct_predictions / len(predictions_with_feedback) * 100) if predictions_with_feedback else 0
+        
+        # Average rating
+        ratings = [p.user_rating for p in db.query(Prediction).all() if p.user_rating is not None]
+        avg_rating = sum(ratings) / len(ratings) if ratings else 0
+        
+        # Today's predictions
+        today = datetime.utcnow().date()
+        today_predictions = db.query(Prediction).filter(
+            Prediction.timestamp >= datetime.combine(today, datetime.min.time())
+        ).count()
+        
+        # Real vs Fake count
+        real_count = db.query(Prediction).filter(Prediction.prediction == "REAL").count()
+        fake_count = db.query(Prediction).filter(Prediction.prediction == "FAKE").count()
+        
+        return {
+            "total_predictions": total_predictions,
+            "accuracy": round(accuracy, 1),
+            "average_rating": round(avg_rating, 1),
+            "today_predictions": today_predictions,
+            "real_count": real_count,
+            "fake_count": fake_count,
+            "feedback_count": len(predictions_with_feedback)
+        }
+    
+    except Exception as e:
+        print(f"⚠️ Stats retrieval failed: {e}")
+        raise HTTPException(status_code=500, detail="Failed to retrieve statistics")
+
+
+@app.get("/api/predictions")
+def get_predictions(limit: int = 50, db: Session = Depends(get_db)):
+    """
+    Get recent predictions for the dashboard table.
+    """
+    try:
+        predictions = db.query(Prediction).order_by(
+            Prediction.timestamp.desc()
+        ).limit(limit).all()
+        
+        return {
+            "predictions": [p.to_dict() for p in predictions]
+        }
+    
+    except Exception as e:
+        print(f"⚠️ Predictions retrieval failed: {e}")
+        raise HTTPException(status_code=500, detail="Failed to retrieve predictions")

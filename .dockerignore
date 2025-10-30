@@ -1,0 +1,49 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+env/
+ENV/
+*.egg-info/
+dist/
+build/
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Git
+.git/
+.gitignore
+
+# Project specific
+predictions.db
+mlruns/
+mlartifacts/
+*.ipynb
+notebooks/
+model_main.ipynb
+
+# Data
+fake_news_dataset.csv
+
+# Documentation
+*.md
+!README.md
+
+# Logs
+*.log
+
+# Test files
+test_*.py
+*_test.py

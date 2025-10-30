@@ -1,0 +1,75 @@
+version: "3.8"
+
+services:
+  # MLflow Tracking Server
+  mlflow:
+    build:
+      context: .
+      dockerfile: Dockerfile.mlflow
+    container_name: fakenews-mlflow
+    ports:
+      - "5000:5000"
+    volumes:
+      - mlflow-backend:/mlflow/backend
+      - mlflow-artifacts:/mlflow/artifacts
+    networks:
+      - fakenews-network
+    restart: unless-stopped
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import requests; requests.get('http://localhost:5000')",
+        ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+  # Fake News Detector API
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile.api
+    container_name: fakenews-api
+    ports:
+      - "8000:8000"
+    volumes:
+      - predictions-db:/app/data
+      - ./models:/app/models:ro
+    environment:
+      - MLFLOW_TRACKING_URI=http://mlflow:5000
+      - DATABASE_URL=sqlite:////app/data/predictions.db
+    depends_on:
+      mlflow:
+        condition: service_healthy
+    networks:
+      - fakenews-network
+    restart: unless-stopped
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import requests; requests.get('http://localhost:8000/api/stats')",
+        ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 15s
+
+networks:
+  fakenews-network:
+    driver: bridge
+    name: fakenews-network
+
+volumes:
+  mlflow-backend:
+    name: fakenews-mlflow-backend
+  mlflow-artifacts:
+    name: fakenews-mlflow-artifacts
+  predictions-db:
+    name: fakenews-predictions-db
