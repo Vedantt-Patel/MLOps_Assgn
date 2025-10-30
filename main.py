@@ -1,6 +1,7 @@
 from fastapi import FastAPI, Request, Depends, HTTPException
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.templating import Jinja2Templates
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 from text_cleaner import TextCleaner
@@ -14,6 +15,11 @@ import pandas as pd
 import sys
 from datetime import datetime
 from typing import Optional
+
+# Prometheus imports
+from prometheus_client import Counter, Histogram, Gauge, generate_latest, CONTENT_TYPE_LATEST
+from prometheus_fastapi_instrumentator import Instrumentator
+from starlette.responses import Response
 
 # Import database
 from database import get_db, Prediction, init_db
@@ -40,7 +46,79 @@ app = FastAPI(
     version="1.0"
 )
 
+# Add CORS middleware to allow browser access
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # Allows all origins
+    allow_credentials=True,
+    allow_methods=["*"],  # Allows all methods
+    allow_headers=["*"],  # Allows all headers
+)
+
 templates = Jinja2Templates(directory="templates")
+
+# ========================================
+# Prometheus Metrics Setup
+# ========================================
+
+# Custom metrics
+predictions_counter = Counter(
+    'fakenews_predictions_total',
+    'Total number of predictions made',
+    ['result']  # REAL or FAKE
+)
+
+prediction_latency = Histogram(
+    'fakenews_prediction_latency_seconds',
+    'Time spent processing prediction',
+    buckets=[0.1, 0.5, 1.0, 2.0, 5.0]
+)
+
+feedback_counter = Counter(
+    'fakenews_feedback_total',
+    'Total feedback submissions',
+    ['feedback_type']  # correct or incorrect
+)
+
+rating_gauge = Gauge(
+    'fakenews_average_rating',
+    'Average user rating'
+)
+
+total_predictions_gauge = Gauge(
+    'fakenews_total_predictions',
+    'Total predictions in database'
+)
+
+accuracy_gauge = Gauge(
+    'fakenews_model_accuracy',
+    'Model accuracy based on user feedback'
+)
+
+fake_predictions_gauge = Gauge(
+    'fakenews_fake_count',
+    'Number of FAKE predictions'
+)
+
+real_predictions_gauge = Gauge(
+    'fakenews_real_count',
+    'Number of REAL predictions'
+)
+
+# Initialize Prometheus Instrumentator for automatic metrics
+instrumentator = Instrumentator(
+    should_group_status_codes=True,
+    should_ignore_untemplated=True,
+    should_respect_env_var=True,
+    should_instrument_requests_inprogress=True,
+    excluded_handlers=["/metrics"],
+    env_var_name="ENABLE_METRICS",
+    inprogress_name="fakenews_requests_inprogress",
+    inprogress_labels=True,
+)
+
+# Instrument the FastAPI app
+instrumentator.instrument(app)
 
 print("🔄 Loading model and encoder...")
 
@@ -127,6 +205,18 @@ def predict(news: NewsItem, db: Session = Depends(get_db)):
     decoded_label = encoder.inverse_transform([prediction])[0].upper()
 
     latency = round(time.time() - start_time, 3)
+    
+    # ========================================
+    # Update Prometheus Metrics
+    # ========================================
+    predictions_counter.labels(result=decoded_label).inc()
+    prediction_latency.observe(latency)
+    
+    # Update gauges based on database
+    if decoded_label == "FAKE":
+        fake_predictions_gauge.inc()
+    else:
+        real_predictions_gauge.inc()
 
     # Log to MLflow only if available
     if experiment_id is not None:
@@ -193,6 +283,14 @@ def submit_feedback(feedback: FeedbackItem, db: Session = Depends(get_db)):
         prediction.user_rating = feedback.user_rating
         
         db.commit()
+        
+        # ========================================
+        # Update Prometheus Metrics
+        # ========================================
+        feedback_counter.labels(feedback_type=feedback.user_feedback).inc()
+        
+        # Update accuracy and rating gauges
+        update_metrics_from_db(db)
         
         print(f"✅ Feedback saved for prediction ID: {feedback.prediction_id}")
         
@@ -274,3 +372,84 @@ def get_predictions(limit: int = 50, db: Session = Depends(get_db)):
     except Exception as e:
         print(f"⚠️ Predictions retrieval failed: {e}")
         raise HTTPException(status_code=500, detail="Failed to retrieve predictions")
+
+
+# ========================================
+# Prometheus Metrics Endpoint
+# ========================================
+
+@app.get("/metrics")
+def metrics():
+    """
+    Prometheus metrics endpoint.
+    This endpoint is scraped by Prometheus to collect all metrics.
+    """
+    return Response(content=generate_latest(), media_type=CONTENT_TYPE_LATEST)
+
+
+# ========================================
+# Helper Functions
+# ========================================
+
+def update_metrics_from_db(db: Session):
+    """
+    Update Prometheus gauges from database statistics.
+    Called after feedback submission to refresh metrics.
+    """
+    try:
+        # Total predictions
+        total = db.query(Prediction).count()
+        total_predictions_gauge.set(total)
+        
+        # Predictions with feedback
+        predictions_with_feedback = db.query(Prediction).filter(
+            Prediction.user_feedback.isnot(None)
+        ).all()
+        
+        # Calculate accuracy
+        if predictions_with_feedback:
+            correct = len([p for p in predictions_with_feedback if p.user_feedback == "correct"])
+            accuracy = (correct / len(predictions_with_feedback)) * 100
+            accuracy_gauge.set(accuracy)
+        
+        # Average rating
+        ratings = [p.user_rating for p in db.query(Prediction).all() if p.user_rating is not None]
+        if ratings:
+            avg_rating = sum(ratings) / len(ratings)
+            rating_gauge.set(avg_rating)
+        
+        # Real vs Fake counts
+        real_count = db.query(Prediction).filter(Prediction.prediction == "REAL").count()
+        fake_count = db.query(Prediction).filter(Prediction.prediction == "FAKE").count()
+        real_predictions_gauge.set(real_count)
+        fake_predictions_gauge.set(fake_count)
+        
+    except Exception as e:
+        print(f"⚠️ Metrics update failed: {e}")
+
+
+# ========================================
+# Startup Event
+# ========================================
+
+@app.on_event("startup")
+async def startup_event():
+    """
+    Initialize metrics on startup.
+    """
+    print("🚀 Initializing Prometheus metrics...")
+    
+    # Initialize metrics from database
+    from database import SessionLocal
+    db = SessionLocal()
+    try:
+        update_metrics_from_db(db)
+        print("✅ Prometheus metrics initialized")
+    except Exception as e:
+        print(f"⚠️ Failed to initialize metrics: {e}")
+    finally:
+        db.close()
+    
+    # Expose metrics endpoint
+    instrumentator.expose(app, endpoint="/metrics", include_in_schema=False)
+    print("✅ Metrics endpoint exposed at /metrics")

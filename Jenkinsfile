@@ -13,6 +13,8 @@
         // Service URLs
         API_URL = 'http://localhost:8000'
         MLFLOW_URL = 'http://localhost:5000'
+        PROMETHEUS_URL = 'http://localhost:9090'
+        GRAFANA_URL = 'http://localhost:3000'
     }
 
     options {
@@ -136,11 +138,39 @@
                     }
                     echo '✅ API is healthy'
                     
+                    // Check Prometheus service
+                    echo '📈 Checking Prometheus Server...'
+                    retry(3) {
+                        bat '''
+                            curl -f %PROMETHEUS_URL%/-/healthy || (
+                                echo "Prometheus health check failed, retrying..."
+                                timeout /t 5 /nobreak
+                                exit 1
+                            )
+                        '''
+                    }
+                    echo '✅ Prometheus is healthy'
+                    
+                    // Check Grafana service
+                    echo '📊 Checking Grafana Dashboard...'
+                    retry(3) {
+                        bat '''
+                            curl -f %GRAFANA_URL%/api/health || (
+                                echo "Grafana health check failed, retrying..."
+                                timeout /t 5 /nobreak
+                                exit 1
+                            )
+                        '''
+                    }
+                    echo '✅ Grafana is healthy'
+                    
                     // Check container health status
                     echo '🏥 Checking Docker Health Status...'
                     bat 'docker-compose ps'
                     bat 'docker inspect fakenews-api --format="{{.State.Health.Status}}" || echo "No health status"'
                     bat 'docker inspect fakenews-mlflow --format="{{.State.Health.Status}}" || echo "No health status"'
+                    bat 'docker inspect fakenews-prometheus --format="{{.State.Health.Status}}" || echo "No health status"'
+                    bat 'docker inspect fakenews-grafana --format="{{.State.Health.Status}}" || echo "No health status"'
                 }
             }
         }
@@ -169,6 +199,14 @@
                     echo '📋 Testing Predictions List...'
                     bat 'curl -f %API_URL%/api/predictions || echo "Predictions list warning"'
                     
+                    // Test Prometheus metrics endpoint
+                    echo '📊 Testing Prometheus Metrics Endpoint...'
+                    bat 'curl -f %API_URL%/metrics || echo "Metrics endpoint warning"'
+                    
+                    // Test Prometheus targets
+                    echo '🎯 Checking Prometheus Targets...'
+                    bat 'curl -f %PROMETHEUS_URL%/api/v1/targets || echo "Prometheus targets warning"'
+                    
                     echo '✅ Functional tests completed'
                 }
             }
@@ -187,6 +225,12 @@
                     
                     echo '📝 MLflow Service Logs:'
                     bat 'docker-compose logs --tail=20 mlflow'
+                    
+                    echo '📝 Prometheus Service Logs:'
+                    bat 'docker-compose logs --tail=20 prometheus'
+                    
+                    echo '📝 Grafana Service Logs:'
+                    bat 'docker-compose logs --tail=20 grafana'
                 }
             }
         }
@@ -204,7 +248,10 @@
                     echo '   • Main App:      http://localhost:8000'
                     echo '   • Dashboard:     http://localhost:8000/dashboard'
                     echo '   • API Docs:      http://localhost:8000/docs'
+                    echo '   • Metrics:       http://localhost:8000/metrics'
                     echo '   • MLflow UI:     http://localhost:5000'
+                    echo '   • Prometheus:    http://localhost:9090'
+                    echo '   • Grafana:       http://localhost:3000 (admin/admin)'
                     echo ''
                     echo '📦 Running Containers:'
                     bat 'docker ps --filter "name=fakenews" --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"'

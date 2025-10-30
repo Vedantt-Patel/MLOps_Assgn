@@ -1,0 +1,358 @@
+{
+  "dashboard": {
+    "title": "Fake News Detector - ML Monitoring",
+    "tags": ["ml", "fakenews", "monitoring"],
+    "timezone": "browser",
+    "editable": true,
+    "graphTooltip": 1,
+    "time": {
+      "from": "now-1h",
+      "to": "now"
+    },
+    "refresh": "10s",
+    "panels": [
+      {
+        "id": 1,
+        "title": "Total Predictions",
+        "type": "stat",
+        "gridPos": { "h": 6, "w": 6, "x": 0, "y": 0 },
+        "targets": [
+          {
+            "expr": "fakenews_total_predictions",
+            "refId": "A"
+          }
+        ],
+        "options": {
+          "reduceOptions": {
+            "values": false,
+            "calcs": ["lastNotNull"]
+          },
+          "orientation": "auto",
+          "textMode": "auto",
+          "colorMode": "value",
+          "graphMode": "area"
+        },
+        "fieldConfig": {
+          "defaults": {
+            "color": { "mode": "thresholds" },
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                { "value": null, "color": "green" },
+                { "value": 10, "color": "yellow" },
+                { "value": 100, "color": "red" }
+              ]
+            },
+            "unit": "short"
+          }
+        }
+      },
+      {
+        "id": 2,
+        "title": "Model Accuracy (%)",
+        "type": "gauge",
+        "gridPos": { "h": 6, "w": 6, "x": 6, "y": 0 },
+        "targets": [
+          {
+            "expr": "fakenews_model_accuracy",
+            "refId": "A"
+          }
+        ],
+        "options": {
+          "showThresholdLabels": true,
+          "showThresholdMarkers": true
+        },
+        "fieldConfig": {
+          "defaults": {
+            "max": 100,
+            "min": 0,
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                { "value": null, "color": "red" },
+                { "value": 50, "color": "yellow" },
+                { "value": 75, "color": "green" }
+              ]
+            },
+            "unit": "percent"
+          }
+        }
+      },
+      {
+        "id": 3,
+        "title": "Average User Rating",
+        "type": "gauge",
+        "gridPos": { "h": 6, "w": 6, "x": 12, "y": 0 },
+        "targets": [
+          {
+            "expr": "fakenews_average_rating",
+            "refId": "A"
+          }
+        ],
+        "options": {
+          "showThresholdLabels": true,
+          "showThresholdMarkers": true
+        },
+        "fieldConfig": {
+          "defaults": {
+            "max": 5,
+            "min": 0,
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                { "value": null, "color": "red" },
+                { "value": 2, "color": "orange" },
+                { "value": 3, "color": "yellow" },
+                { "value": 4, "color": "green" }
+              ]
+            },
+            "unit": "short",
+            "decimals": 1
+          }
+        }
+      },
+      {
+        "id": 4,
+        "title": "Predictions Rate (per minute)",
+        "type": "stat",
+        "gridPos": { "h": 6, "w": 6, "x": 18, "y": 0 },
+        "targets": [
+          {
+            "expr": "rate(fakenews_predictions_total[1m])",
+            "refId": "A"
+          }
+        ],
+        "options": {
+          "reduceOptions": {
+            "values": false,
+            "calcs": ["lastNotNull"]
+          },
+          "textMode": "auto",
+          "colorMode": "value",
+          "graphMode": "area"
+        },
+        "fieldConfig": {
+          "defaults": {
+            "unit": "reqps",
+            "decimals": 2
+          }
+        }
+      },
+      {
+        "id": 5,
+        "title": "Predictions Over Time",
+        "type": "graph",
+        "gridPos": { "h": 8, "w": 12, "x": 0, "y": 6 },
+        "targets": [
+          {
+            "expr": "fakenews_predictions_total",
+            "legendFormat": "{{result}}",
+            "refId": "A"
+          }
+        ],
+        "yaxes": [{ "format": "short", "show": true }, { "show": true }],
+        "lines": true,
+        "fill": 1,
+        "linewidth": 2,
+        "legend": {
+          "show": true,
+          "values": true,
+          "current": true
+        }
+      },
+      {
+        "id": 6,
+        "title": "REAL vs FAKE Distribution",
+        "type": "piechart",
+        "gridPos": { "h": 8, "w": 12, "x": 12, "y": 6 },
+        "targets": [
+          {
+            "expr": "fakenews_fake_count",
+            "legendFormat": "FAKE",
+            "refId": "A"
+          },
+          {
+            "expr": "fakenews_real_count",
+            "legendFormat": "REAL",
+            "refId": "B"
+          }
+        ],
+        "options": {
+          "legend": {
+            "displayMode": "list",
+            "placement": "right",
+            "values": ["value", "percent"]
+          },
+          "pieType": "pie",
+          "displayLabels": ["percent"]
+        }
+      },
+      {
+        "id": 7,
+        "title": "Prediction Latency (seconds)",
+        "type": "graph",
+        "gridPos": { "h": 8, "w": 12, "x": 0, "y": 14 },
+        "targets": [
+          {
+            "expr": "histogram_quantile(0.50, rate(fakenews_prediction_latency_seconds_bucket[5m]))",
+            "legendFormat": "p50 (median)",
+            "refId": "A"
+          },
+          {
+            "expr": "histogram_quantile(0.95, rate(fakenews_prediction_latency_seconds_bucket[5m]))",
+            "legendFormat": "p95",
+            "refId": "B"
+          },
+          {
+            "expr": "histogram_quantile(0.99, rate(fakenews_prediction_latency_seconds_bucket[5m]))",
+            "legendFormat": "p99",
+            "refId": "C"
+          }
+        ],
+        "yaxes": [
+          { "format": "s", "show": true, "label": "Latency" },
+          { "show": true }
+        ],
+        "lines": true,
+        "fill": 0,
+        "linewidth": 2,
+        "legend": {
+          "show": true,
+          "values": true,
+          "current": true,
+          "avg": true
+        }
+      },
+      {
+        "id": 8,
+        "title": "User Feedback Distribution",
+        "type": "graph",
+        "gridPos": { "h": 8, "w": 12, "x": 12, "y": 14 },
+        "targets": [
+          {
+            "expr": "fakenews_feedback_total",
+            "legendFormat": "{{feedback_type}}",
+            "refId": "A"
+          }
+        ],
+        "yaxes": [
+          { "format": "short", "show": true, "label": "Count" },
+          { "show": true }
+        ],
+        "bars": true,
+        "lines": false,
+        "legend": {
+          "show": true,
+          "values": true,
+          "current": true
+        }
+      },
+      {
+        "id": 9,
+        "title": "HTTP Request Rate",
+        "type": "graph",
+        "gridPos": { "h": 8, "w": 12, "x": 0, "y": 22 },
+        "targets": [
+          {
+            "expr": "rate(http_requests_total[5m])",
+            "legendFormat": "{{method}} {{handler}}",
+            "refId": "A"
+          }
+        ],
+        "yaxes": [
+          { "format": "reqps", "show": true, "label": "Requests/sec" },
+          { "show": true }
+        ],
+        "lines": true,
+        "fill": 1,
+        "linewidth": 2,
+        "legend": {
+          "show": true,
+          "alignAsTable": true,
+          "values": true,
+          "current": true,
+          "avg": true
+        }
+      },
+      {
+        "id": 10,
+        "title": "HTTP Request Duration",
+        "type": "graph",
+        "gridPos": { "h": 8, "w": 12, "x": 12, "y": 22 },
+        "targets": [
+          {
+            "expr": "histogram_quantile(0.95, rate(http_request_duration_seconds_bucket[5m]))",
+            "legendFormat": "p95",
+            "refId": "A"
+          },
+          {
+            "expr": "histogram_quantile(0.99, rate(http_request_duration_seconds_bucket[5m]))",
+            "legendFormat": "p99",
+            "refId": "B"
+          }
+        ],
+        "yaxes": [
+          { "format": "s", "show": true, "label": "Duration" },
+          { "show": true }
+        ],
+        "lines": true,
+        "fill": 0,
+        "linewidth": 2
+      },
+      {
+        "id": 11,
+        "title": "Active Requests",
+        "type": "stat",
+        "gridPos": { "h": 4, "w": 6, "x": 0, "y": 30 },
+        "targets": [
+          {
+            "expr": "fakenews_requests_inprogress",
+            "refId": "A"
+          }
+        ],
+        "options": {
+          "reduceOptions": {
+            "values": false,
+            "calcs": ["lastNotNull"]
+          },
+          "colorMode": "value",
+          "graphMode": "none"
+        }
+      },
+      {
+        "id": 12,
+        "title": "System Health",
+        "type": "table",
+        "gridPos": { "h": 8, "w": 18, "x": 6, "y": 30 },
+        "targets": [
+          {
+            "expr": "up",
+            "format": "table",
+            "instant": true,
+            "refId": "A"
+          }
+        ],
+        "options": {
+          "showHeader": true
+        },
+        "fieldConfig": {
+          "defaults": {
+            "custom": {
+              "align": "auto",
+              "displayMode": "auto"
+            },
+            "mappings": [
+              {
+                "type": "value",
+                "options": {
+                  "0": { "text": "DOWN", "color": "red" },
+                  "1": { "text": "UP", "color": "green" }
+                }
+              }
+            ]
+          }
+        }
+      }
+    ]
+  }
+}
